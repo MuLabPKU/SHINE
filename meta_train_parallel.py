@@ -436,7 +436,21 @@ def main(cfg: DictConfig):
         config.num_mem_token = cfg.num_mem_token
 
     tokenizer = AutoTokenizer.from_pretrained(cfg.model.tokenizer_from)
-    metamodel = MetaModelCls.from_pretrained(cfg.model.model_from, config=config)
+
+    
+    from transformers import BitsAndBytesConfig
+    quantization_config = BitsAndBytesConfig(
+        load_in_4bit=True,                          # 启用 4-bit 量化
+        bnb_4bit_compute_dtype=torch.bfloat16,       # 计算时的数据类型
+        bnb_4bit_quant_type="nf4",                  # 量化类型: 'fp4' 或 'nf4'
+        bnb_4bit_use_double_quant=True,             # 是否使用双重量化,
+        llm_int8_skip_modules=["mem_tokens", "lm_head"],
+    )
+    metamodel = MetaModelCls.from_pretrained(
+        cfg.model.model_from, 
+        quantization_config=quantization_config,
+        torch_dtype=torch.bfloat16, 
+        config=config)
     metamodel.reset_mem_tokens()
     metanetwork = Metanetwork(metamodel, cfg, metamodel.lora_params_numel(cfg.model.lora_r))
     metanetwork.train()
@@ -494,6 +508,7 @@ def main(cfg: DictConfig):
             broadcast_buffers=False,
         )
     else:
+        metanetwork.to(device)
         ddp_metanet = metanetwork  # no wrapping in single-process run
 
     # Optimizer & Scheduler
@@ -632,7 +647,7 @@ def main(cfg: DictConfig):
         # need to change
         if isinstance(train_loader.sampler, DistributedSampler):
             train_loader.sampler.set_epoch(epoch)
-        
+
         if epoch < start_epoch:
             for step, batch in enumerate(train_loader, start=1):
                 if step % max(1, cfg.run.gradient_accumulation_steps) == 0:
@@ -654,7 +669,7 @@ def main(cfg: DictConfig):
             evidence_ids = batch["evidence_ids"].to(device, non_blocking=True)
             evidence_attention_mask = batch["evidence_attention_mask"].to(device, non_blocking=True)
 
-            with torch.amp.autocast(enabled=(cfg.run.use_fp16 and device.type == "cuda"), device_type=str(device)):
+            with torch.amp.autocast(dtype=torch.bfloat16, enabled=(cfg.run.use_fp16 and device.type == "cuda"), device_type=str(device)):
                 # Forward through possibly DDP-wrapped metanetwork
                 outputs = ddp_metanet(input_ids=input_ids, input_attention_mask=input_attention_mask, 
                                       evidence_ids=evidence_ids, evidence_attention_mask=evidence_attention_mask, 
@@ -799,6 +814,8 @@ def main(cfg: DictConfig):
         if ddp_is_active():
             dist.barrier()
     
+    if is_main_process():
+        logger.info("before init eval...")
     # Initial eval
     if resume_dir is None:
         init_eval_without_metanetwork = evaluate(ddp_metanet, val_loader, device, use_amp=cfg.run.use_fp16, use_metanet=False)

@@ -27,6 +27,52 @@ from torch import nn
 from torch import Tensor
 from transformers.models.qwen3.modeling_qwen3 import ACT2FN, Cache, DynamicCache, GenerationMixin, use_kernel_forward_from_hub, create_causal_mask, create_sliding_window_causal_mask, FlashAttentionKwargs, GenericForQuestionAnswering, GenericForSequenceClassification, GenericForTokenClassification, GradientCheckpointingLayer, BaseModelOutputWithPast, CausalLMOutputWithPast, ROPE_INIT_FUNCTIONS, dynamic_rope_update, ALL_ATTENTION_FUNCTIONS, PreTrainedModel, Unpack, TransformersKwargs, auto_docstring, can_return_tuple, deprecate_kwarg, check_model_inputs, Qwen3Config, Qwen3RMSNorm, Qwen3MLP, Qwen3Attention, apply_rotary_pos_emb, eager_attention_forward, Qwen3RotaryEmbedding
 from math import sqrt
+from torch.utils.checkpoint import checkpoint
+from bitsandbytes.nn.modules import Linear4bit
+import bitsandbytes as bnb
+
+base_forward_4bit = Linear4bit.forward
+
+def forward_4bit(self, input: Tensor, lora_dict = None) -> Tensor: 
+    print("shape!!", self.weight.shape, flush=True)
+    if lora_dict is None:
+        return base_forward_4bit(self, input)
+    else:
+        assert input.shape[0] % lora_dict["A"].shape[0] == 0, f"input batch size {input.shape[0]} must be multiple of lora_dict['A'] batch size {lora_dict['A'].shape[0]}"
+        num_beams = input.shape[0] // lora_dict["A"].shape[0]
+        if self.bias is None:
+            assert lora_dict.get("C") is None, "If bias is None, lora_dict['C'] must also be None"
+        else:
+            assert lora_dict.get("C") is not None, "If bias is not None, lora_dict['C'] must also be not None"
+        return base_forward_4bit(self, input) + torch.bmm(torch.bmm(input, lora_dict["A"].repeat_interleave(num_beams, dim=0)), lora_dict["B"].repeat_interleave(num_beams, dim=0)) + (lora_dict["C"].unsqueeze(1).repeat_interleave(num_beams, dim=0) if self.bias is not None else 0)
+
+def lora_params_numel_4bit(self, r):
+    if not hasattr(self, "lora_params_numel_cache"):
+        self.lora_params_numel_cache = self.in_features * r + self.out_features * r + (self.out_features if self.bias is not None else 0) 
+    return self.lora_params_numel_cache
+
+def generate_lora_dict_4bit(self, r, scale, plain_tensor):
+    assert plain_tensor.shape[-1] == self.lora_params_numel(r), f"plain_tensor's last dimension {plain_tensor.shape[-1]} does not match lora_params_numel {self.lora_params_numel(r)}"
+    idx = 0
+    A = plain_tensor[:, idx: idx + self.in_features * r].view(-1, self.in_features, r) * sqrt(scale)
+    idx += self.in_features * r
+    B = plain_tensor[:, idx: idx + self.out_features * r].view(-1, r, self.out_features) * sqrt(scale)
+    idx += self.out_features * r
+    C = plain_tensor[:, idx: idx + self.out_features].view(-1, self.out_features) * scale if self.bias is not None else None
+    return {"A": A, "B": B, "C": C}
+
+def init_lora_dict_4bit(self, r, scale, device):
+    A = (torch.randn(size=(1, self.in_features, r), device=device) * sqrt(scale)).detach()
+    A.requires_grad_()
+    B = torch.zeros(size=(1, r, self.out_features), requires_grad=True, device=device)
+    C = torch.zeros(size=(1, self.out_features), requires_grad=True, device=device) if self.bias is not None else None
+    return {"A": A, "B": B, "C": C}
+
+Linear4bit.forward = forward_4bit
+Linear4bit.lora_params_numel = lora_params_numel_4bit
+Linear4bit.generate_lora_dict = generate_lora_dict_4bit
+Linear4bit.init_lora_dict = init_lora_dict_4bit
+
 
 class LoraLinear(nn.Linear):
     def __init__(self, in_features, out_features, bias = True, device=None, dtype=None):
@@ -440,17 +486,31 @@ class LoraQwen3Model(Qwen3PreTrainedModel):
         if self.use_mem_token and not ignore_mem_token:
             memory_states = torch.zeros((hidden_states.shape[0], self.config.num_hidden_layers, self.num_mem_token, self.config.hidden_size)).to(self.device)
         for i, decoder_layer in enumerate(self.layers[: self.config.num_hidden_layers]):
-            hidden_states = decoder_layer(
-                hidden_states,
-                attention_mask=causal_mask_mapping[decoder_layer.attention_type],
-                position_ids=position_ids,
-                past_key_values=past_key_values,
-                use_cache=use_cache,
-                cache_position=cache_position,
-                position_embeddings=position_embeddings,
-                loradict=loradict[i] if isinstance(loradict, dict) else None,
-                **kwargs,
-            )
+            if True:
+                hidden_states = checkpoint(
+                    decoder_layer, 
+                    hidden_states,
+                    attention_mask=causal_mask_mapping[decoder_layer.attention_type],
+                    position_ids=position_ids,
+                    past_key_values=past_key_values,
+                    use_cache=use_cache,
+                    cache_position=cache_position,
+                    position_embeddings=position_embeddings,
+                    loradict=loradict[i] if isinstance(loradict, dict) else None,
+                    **kwargs,
+                    use_reentrant=False)
+            if False:
+                hidden_states =  decoder_layer(
+                    hidden_states,
+                    attention_mask=causal_mask_mapping[decoder_layer.attention_type],
+                    position_ids=position_ids,
+                    past_key_values=past_key_values,
+                    use_cache=use_cache,
+                    cache_position=cache_position,
+                    position_embeddings=position_embeddings,
+                    loradict=loradict[i] if isinstance(loradict, dict) else None,
+                    **kwargs,
+                )
             if self.use_mem_token and not ignore_mem_token:
                 memory_states[:, i, :, :] = hidden_states[:, -self.num_mem_token:].to(self.device)
 

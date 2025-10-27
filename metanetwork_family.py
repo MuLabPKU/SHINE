@@ -69,6 +69,7 @@ class Metanetwork(nn.Module):
         else:
             raise ValueError(f"Unknown metanetwork type: {cfg.metanetwork.type}")
 
+    @torch.compile
     def forward(self, input_ids, input_attention_mask, evidence_ids, evidence_attention_mask, metalora = None, labels = None, use_metanet = True, **kwargs) -> dict:
         '''
         memory_states: (batch_size, num_layer, num_mem_token, hidden_size)
