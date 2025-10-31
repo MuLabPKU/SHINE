@@ -11,15 +11,11 @@ nohup.out
 qwen-finetuned
 test
 results
-meta_train_debug.py
-meta_train_parallel_compare.py
 metanetwork_family_new.py
 scripts/Qwen3-0.6B/pretrain_debug.sh
 cache_transmla.py
 debug.py
 LoraQwen_liger.py
-configs/deepspeed.json
 meta_train_parallel_liger.py
-scripts/Qwen3-0.6B/deepspeed.sh
 transmla_statistic.py
 transmla_text_length_distribution.png
