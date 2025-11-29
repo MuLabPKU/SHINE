@@ -450,8 +450,8 @@ def main(cfg: DictConfig):
         tmp_model = MetaModelCls.from_pretrained(cfg.model.model_from, config=config)
         lora_numel = tmp_model.lora_params_numel(cfg.model.lora_r)
         assert lora_numel % (cfg.hidden_size * cfg.num_layers) == 0, \
-            "For transformer metanetwork, num_mem_token must be set to model.lora_params_numel(lora_r) * mean_pool_size / (hidden_size * num_layers)"
-        config.num_mem_token = tmp_model.lora_params_numel(cfg.model.lora_r) * cfg.metanetwork.transformer_cfg.mean_pool_size // (cfg.hidden_size * cfg.num_layers)
+            "For transformer metanetwork, num_mem_token must be set to model.lora_params_numel(lora_r) / (hidden_size * num_layers)"
+        config.num_mem_token = tmp_model.lora_params_numel(cfg.model.lora_r) // (cfg.hidden_size * cfg.num_layers)
         cfg.num_mem_token = config.num_mem_token
         del tmp_model
         if is_main_process():
@@ -657,9 +657,6 @@ def main(cfg: DictConfig):
         best_eval_loss = resume_state["best_eval_loss"]
         start_epoch = resume_state["epoch"]
         start_step_in_epoch = resume_state["step_in_epoch"]
-        
-    if is_main_process():
-        logger.info(f"Mode: {cfg.mode}. Use scale grad: {metanetwork.metanetwork.scale.requires_grad}")
 
     def one_train_epoch(epoch, start_epoch=1, start_step_in_epoch=0):
         nonlocal global_step, best_eval_loss
@@ -800,10 +797,6 @@ def main(cfg: DictConfig):
                         writer.add_scalar("eval/ppl", eval_metrics["perplexity"], global_step)
                     if is_main_process():
                         logger.info(f"[Eval @ step {global_step}] loss={eval_metrics['eval_loss']:.4f} ppl={eval_metrics['perplexity']:.2f}")
-                        # see scale
-                        torch.set_printoptions(threshold=float('inf'))
-                        logger.info(f"\n{torch.mean(ddp_metanet.module.metanetwork.scale.data[0,:,:,0], dim=1)}")
-                        logger.info(f"\n{ddp_metanet.module.metanetwork.scale.data[0,:,:,0]}")
 
                     # # Best checkpoint saving on rank 0
                     # if getattr(cfg.save, "save_best", True) and is_main_process():

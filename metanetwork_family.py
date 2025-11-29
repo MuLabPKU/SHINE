@@ -36,7 +36,6 @@ class MetanetworkTransformer(nn.Module):
         self.num_layers = cfg.num_layers
         self.num_mem_token = cfg.num_mem_token
         self.hidden_size = cfg.hidden_size
-        self.mean_pool_size = cfg.metanetwork.transformer_cfg.mean_pool_size
 
         self.layer_pe = nn.Parameter(torch.zeros((self.num_layers, self.hidden_size)), requires_grad=True)
         self.token_pe = nn.Parameter(torch.zeros((self.num_mem_token, self.hidden_size)), requires_grad=True)
@@ -45,38 +44,23 @@ class MetanetworkTransformer(nn.Module):
         self.transformer_layers = nn.ModuleList([nn.TransformerEncoderLayer(**transformer_cfg.encoder_cfg) for _ in range(transformer_cfg.num_layers)])
         
         self.scale = nn.Parameter(torch.ones((1, self.num_layers, self.num_mem_token, 1)), requires_grad=True)
-        self.use_final_bias = transformer_cfg.use_final_bias
-        if self.use_final_bias:
-            self.bias = nn.Parameter(torch.zeros((1, self.num_layers, self.num_mem_token // self.mean_pool_size, self.hidden_size)), requires_grad=True)
+        self.bias = nn.Parameter(torch.zeros((1, self.num_layers, self.num_mem_token, 1)), requires_grad=True)
         
-        # self.set_mode(cfg.mode)
-
+        self.rmsnorm = nn.RMSNorm(self.hidden_size, eps=1e-6)
+        
     def forward(self, memory_states:torch.Tensor) -> dict:
         '''
         memory_states: (batch_size, num_layer, num_mem_token, hidden_size)
         '''
-        memory_states = memory_states + self.layer_pe.unsqueeze(-2) + self.token_pe # apply PE
+        memory_states = memory_states  + self.layer_pe.unsqueeze(-2) + self.token_pe # apply PE
         batch_size = memory_states.shape[0]
         for i in range(len(self.transformer_layers)):
             if i % 2 == 0:
                 memory_states = self.transformer_layers[i](memory_states.transpose(1, 2).flatten(0, 1)).unflatten(0, (batch_size, self.num_mem_token)).transpose(1, 2) # exchange information among layers
             else:
                 memory_states = self.transformer_layers[i](memory_states.flatten(0, 1)).unflatten(0, (batch_size, self.num_layers)) # exchange information among tokens
-        memory_states = memory_states * self.scale
-        memory_states = torch.mean(memory_states.unflatten(2, (self.mean_pool_size, self.num_mem_token // self.mean_pool_size)), dim=2)  # mean pool
-        if self.use_final_bias:
-            memory_states += self.bias
+        memory_states = self.rmsnorm(memory_states) * self.scale + self.bias
         return memory_states.flatten(1, -1)
-    
-    def set_mode(self, mode: str):
-        if mode == 'pretrain':
-            self.scale.requires_grad = True
-            if self.use_final_bias:
-                self.bias.requires_grad = True
-        elif mode == 'train':
-            self.scale.requires_grad = False
-            if self.use_final_bias:
-                self.bias.requires_grad = False
 
 class Metanetwork(nn.Module):
     def __init__(self, metamodel:nn.Module, cfg, output_dim: int):

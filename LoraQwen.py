@@ -53,7 +53,7 @@ class LoraLinear(nn.Linear):
     def generate_lora_dict(self, r, scale, plain_tensor):
         assert plain_tensor.shape[-1] == self.lora_params_numel(r), f"plain_tensor's last dimension {plain_tensor.shape[-1]} does not match lora_params_numel {self.lora_params_numel(r)}"
         idx = 0
-        A = plain_tensor[:, idx: idx + self.in_features * r].view(-1, self.in_features, r) * sqrt(scale)
+        A = plain_tensor[:, idx: idx + self.in_features * r].view(-1, r, self.in_features).transpose(-1, -2) * sqrt(scale)
         idx += self.in_features * r
         B = plain_tensor[:, idx: idx + self.out_features * r].view(-1, r, self.out_features) * sqrt(scale)
         idx += self.out_features * r
