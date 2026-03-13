@@ -92,8 +92,17 @@ hf download Yewei-Liu/SHINE-ift_mqa_1qa --local-dir checkpoints/8gpu_8lora_128me
 ### Datasets
 If use our dataset, please also cite their origin papers, which are listed in the Appendix of our paper.
 
+Download the SQuAD dataset
+```bash
+mkdir data
+
+hf download rajpurkar/squad  --repo-type dataset --local-dir data/squad
+```
+
 Download the pretraining dataset
 ```bash
+mkdir data
+
 hf download fxmeng/transmla_pretrain_6B_tokens --repo-type dataset --local-dir data/transmla_pretrain_6B_tokens
 ```
 
