@@ -1,13 +1,13 @@
 <h1 align="center">🔆 SHINE: A Scalable In-Context Hypernetwork for Mapping Context to LoRA in a Single Pass</h1>
 
-<div align="center">
-
 ## 🎉 News
 **[2026-04-26] A Demo of SHINE is Released!**
 
 [https://github.com/user-attachments/assets/6b7fe64a-4345-43c7-ad3b-0093568939a8](https://github.com/user-attachments/assets/6b7fe64a-4345-43c7-ad3b-0093568939a8)
 
 ---
+
+<div align="center">
 
 <img src="figures/example.png" alt="example" width="600" />
 
