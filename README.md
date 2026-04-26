@@ -3,9 +3,9 @@
 <div align="center">
 
 ## 🎉 News
-**[2026-04-26] A Demo of SHINE is Released!** Check https://github.com/MuLabPKU/SHINE/issues/2#issue-4331215198
+**[2026-04-26] A Demo of SHINE is Released!**
 
-https://github.com/MuLabPKU/SHINE/issues/2#issue-4331215198
+[https://github.com/user-attachments/assets/6b7fe64a-4345-43c7-ad3b-0093568939a8](https://github.com/user-attachments/assets/6b7fe64a-4345-43c7-ad3b-0093568939a8)
 
 ---
 
