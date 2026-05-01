@@ -1,7 +1,7 @@
 <h1 align="center">🔆 SHINE: A Scalable In-Context Hypernetwork for Mapping Context to LoRA in a Single Pass</h1>
 
 ## 🎉 News
-**[2026-05-01] Our paper has been accepted by ICML 2026. The camera-ready version is coming soon.**
+**[2026-05-01] Our paper has been accepted by ICML 2026. The camera-ready version is coming soon.**\
 **[2026-04-26] A Demo of SHINE is Released!**
 
 [https://github.com/user-attachments/assets/6b7fe64a-4345-43c7-ad3b-0093568939a8](https://github.com/user-attachments/assets/6b7fe64a-4345-43c7-ad3b-0093568939a8)
