@@ -1,27 +1,5 @@
 <h1 align="center">🔆 SHINE: A Scalable In-Context Hypernetwork for Mapping Context to LoRA in a Single Pass</h1>
 
-## 🎉 News
-<table>
-  <tr>
-    <td style="white-space: nowrap; padding-right: 16px; vertical-align: top;">
-      <b>[2026-05-01]</b>
-    </td>
-    <td>
-      <b>Our paper has been accepted by ICML 2026. The camera-ready version is coming soon.</b>
-    </td>
-  </tr>
-  <tr>
-    <td style="white-space: nowrap; padding-right: 16px; vertical-align: top;">
-      <b>[2026-04-26]</b>
-    </td>
-    <td>
-      <b>A Demo of SHINE is Released!</b>
-    </td>
-  </tr>
-</table>
-
-[https://github.com/user-attachments/assets/6b7fe64a-4345-43c7-ad3b-0093568939a8](https://github.com/user-attachments/assets/6b7fe64a-4345-43c7-ad3b-0093568939a8)
-
 <!-- <div align="center">
 
 这里放置徽章，例如 arXiv 链接、许可证、Python 版本等
@@ -30,6 +8,28 @@
 [![Python](https://img.shields.io/badge/Python-3.8%2B-green.svg)](https://www.python.org/)
 
 </div> -->
+
+## 🎉 News
+<table>
+  <tr>
+    <td style="white-space: nowrap; padding-right: 16px; vertical-align: top;">
+      <b>2026-05-01</b>
+    </td>
+    <td>
+      <b>Our paper has been accepted by ICML 2026. The camera-ready version is coming soon.</b>
+    </td>
+  </tr>
+  <tr>
+    <td style="white-space: nowrap; padding-right: 16px; vertical-align: top;">
+      <b>2026-04-26</b>
+    </td>
+    <td>
+      <b>A Demo of SHINE is Released!</b>
+    </td>
+  </tr>
+</table>
+
+[https://github.com/user-attachments/assets/6b7fe64a-4345-43c7-ad3b-0093568939a8](https://github.com/user-attachments/assets/6b7fe64a-4345-43c7-ad3b-0093568939a8)
 
 <!-- ## ✨ Features
 
